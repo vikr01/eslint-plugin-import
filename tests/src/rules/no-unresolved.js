@@ -68,6 +68,37 @@ function runResolverTests(resolver) {
            , options: [{ amd: true }]}),
       rest({ code: 'define(["./does-not-exist"], function (bar) {})' }),
 
+      // webpack setting
+      rest({ code: 'var foo = require.ensure("./bar")'
+           , options: [{ webpack: true }]
+           , parser: 'babel-eslint'}),
+      rest({ code: 'require.ensure("./bar")'
+           , options: [{ webpack: true }]
+           , parser: 'babel-eslint'}),
+      rest({ code: 'require.ensure("https://github.com/benmosher/eslint-plugin-import")'
+           , options: [{ webpack: true }]
+           , parser: 'babel-eslint'}),
+      rest({ code: 'require.ensure("./does-not-exist")'
+           , options: [{ webpack: false }]
+           , parser: 'babel-eslint'}),
+      rest({ code: 'require.ensure("./does-not-exist")'
+           , parser: 'babel-eslint'}),
+
+      rest({ code: 'var foo = import("./bar")'
+           , options: [{ webpack: true }]
+           , parser: 'babel-eslint'}),
+      rest({ code: 'import("./bar")'
+           , options: [{ webpack: true }]
+           , parser: 'babel-eslint'}),
+      rest({ code: 'import("https://github.com/benmosher/eslint-plugin-import")'
+           , options: [{ webpack: true }]
+           , parser: 'babel-eslint'}),
+      rest({ code: 'import("./does-not-exist")'
+           , options: [{ webpack: false }]
+           , parser: 'babel-eslint'}),
+      rest({ code: 'import("./does-not-exist")'
+           , parser: 'babel-eslint'}),
+
       // stress tests
       rest({ code: 'require("./does-not-exist", "another arg")'
            , options: [{ commonjs: true, amd: true }]}),
@@ -177,6 +208,46 @@ function runResolverTests(resolver) {
           message: "Unable to resolve path to module './does-not-exist'.",
           type: 'Literal',
         }],
+      }),
+
+
+      // webpack setting
+      rest({
+        code: 'var bar = require.ensure("./baz")',
+        options: [{ webpack: true }],
+        errors: [{
+          message: "Unable to resolve path to module './baz'.",
+          type: 'Literal',
+        }],
+        parser: 'babel-eslint',
+      }),
+      rest({
+        code: 'require.ensure("./baz")',
+        options: [{ webpack: true }],
+        errors: [{
+          message: "Unable to resolve path to module './baz'.",
+          type: 'Literal',
+        }],
+        parser: 'babel-eslint',
+      }),
+
+      rest({
+        code: 'var bar = import("./baz")',
+        options: [{ webpack: true }],
+        errors: [{
+          message: "Unable to resolve path to module './baz'.",
+          type: 'Literal',
+        }],
+        parser: 'babel-eslint',
+      }),
+      rest({
+        code: 'import("./baz")',
+        options: [{ webpack: true }],
+        errors: [{
+          message: "Unable to resolve path to module './baz'.",
+          type: 'Literal',
+        }],
+        parser: 'babel-eslint',
       }),
     ],
   })
