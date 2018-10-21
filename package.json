@@ -15,11 +15,11 @@
     "memo-parser"
   ],
   "scripts": {
-    "watch": "cross-env NODE_PATH=./src mocha --watch --compilers js:babel-register --recursive tests/src",
+    "watch": "cross-env NODE_PATH=./src mocha --watch --compilers js:@babel/register --recursive tests/src",
     "pretest": "linklocal",
     "posttest": "eslint ./src",
     "test": "cross-env BABEL_ENV=test NODE_PATH=./src nyc -s mocha -R dot --recursive tests/src -t 5s",
-    "test-compiled": "npm run prepublish && NODE_PATH=./lib mocha --compilers js:babel-register --recursive tests/src",
+    "test-compiled": "npm run prepublish && NODE_PATH=./lib mocha --compilers js:@babel/register --recursive tests/src",
     "test-all": "npm test && for resolver in ./resolvers/*; do cd $resolver && npm test && cd ../..; done",
     "prepublish": "gulp prepublish",
     "coveralls": "nyc report --reporter lcovonly && cat ./coverage/lcov.info | coveralls"
@@ -44,11 +44,11 @@
   },
   "homepage": "https://github.com/benmosher/eslint-plugin-import",
   "devDependencies": {
+    "@babel/core": "^7.1.2",
+    "@babel/register": "^7.0.0",
     "babel-eslint": "8.0.x",
-    "babel-plugin-istanbul": "^4.1.6",
+    "babel-plugin-istanbul": "^5.1.0",
     "babel-preset-es2015-argon": "latest",
-    "babel-register": "^6.26.0",
-    "babylon": "6.15.0",
     "chai": "^3.5.0",
     "coveralls": "^3.0.0",
     "cross-env": "^4.0.0",
@@ -59,7 +59,7 @@
     "eslint-module-utils": "file:./utils",
     "eslint-plugin-import": "2.x",
     "gulp": "^3.9.0",
-    "gulp-babel": "6.1.2",
+    "gulp-babel": "^8.0.0",
     "linklocal": "^2.6.0",
     "mocha": "^3.5.3",
     "nyc": "^11.7.1",
@@ -86,7 +86,7 @@
   },
   "nyc": {
     "require": [
-      "babel-register"
+      "@babel/register"
     ],
     "sourceMap": false,
     "instrument": false,

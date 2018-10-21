@@ -46,9 +46,10 @@
     "webpack": ">=1.11.0"
   },
   "devDependencies": {
-    "babel-plugin-istanbul": "^4.1.6",
+    "@babel/core": "^7.0.0",
+    "@babel/register": "^7.0.0",
+    "babel-plugin-istanbul": "^5.1.0",
     "babel-preset-es2015-argon": "latest",
-    "babel-register": "^6.26.0",
     "chai": "^3.5.0",
     "coveralls": "^3.0.0",
     "mocha": "^3.5.3",
