@@ -82,7 +82,8 @@
     "lodash": "^4.17.4",
     "minimatch": "^3.0.3",
     "read-pkg-up": "^2.0.0",
-    "resolve": "^1.6.0"
+    "resolve": "^1.6.0",
+    "validator": "^10.8.0"
   },
   "nyc": {
     "require": [

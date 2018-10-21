@@ -1,4 +1,6 @@
 'use strict'
+const isURL = require('validator').isURL;
+
 exports.__esModule = true
 
 /**
@@ -80,6 +82,21 @@ exports.default = function visitModules(visitor, options) {
     }
   }
 
+  function checkWebpack(call) {
+    if (call.callee.type !== 'MemberExpression') return
+    if (call.callee.object.name !== 'require') return
+    if (call.callee.property.name !== 'ensure') return
+
+    if (call.arguments.length !== 1) return
+
+    const modulePath = call.arguments[0]
+    if (modulePath.type !== 'Literal') return
+    if (typeof modulePath.value !== 'string') return
+    if (isURL(modulePath.value)) return
+
+    checkSourceValue(modulePath, call)
+  }
+
   const visitors = {}
   if (options.esmodule) {
     Object.assign(visitors, {
@@ -97,6 +114,14 @@ exports.default = function visitModules(visitor, options) {
     }
   }
 
+  if (options.webpack) {
+    const currentCallExpression = visitors['CallExpression']
+    visitors['CallExpression'] = function (call) {
+      if (currentCallExpression) currentCallExpression(call)
+      checkWebpack(call)
+    }
+  }
+
   return visitors
 }
 
@@ -111,6 +136,7 @@ function makeOptionsSchema(additionalProperties) {
       'commonjs': { 'type': 'boolean' },
       'amd': { 'type': 'boolean' },
       'esmodule': { 'type': 'boolean' },
+      'webpack': { 'type': 'boolean' },
       'ignore': {
         'type': 'array',
         'minItems': 1,
