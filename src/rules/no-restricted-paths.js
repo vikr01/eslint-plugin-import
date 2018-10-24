@@ -46,7 +46,12 @@ module.exports = {
     })
 
     function checkForRestrictedImportPath(importPath, node) {
-        const absoluteImportPath = resolve(importPath, context)
+      let handled = false
+      function handleAbsoluteImportPath(error, absoluteImportPath) {
+        if(handled) {
+          return
+        }
+        handled = true
 
         if (!absoluteImportPath) {
           return
@@ -62,6 +67,10 @@ module.exports = {
             })
           }
         })
+      }
+
+      const absoluteImportPath = resolve(importPath, context, handleAbsoluteImportPath)
+      handleAbsoluteImportPath(null, absoluteImportPath)
     }
 
     return {

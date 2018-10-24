@@ -24,23 +24,32 @@ module.exports = {
         return
       }
 
-      const absDepPath = resolve(depPath, context)
+      let handled = false
+      function handleAbsDepPath(error, absDepPath) {
+        if(handled) {
+          return
+        }
+        handled = true
 
-      if (!absDepPath) { // unable to resolve path
-        return
+        if (!absDepPath) { // unable to resolve path
+          return
+        }
+
+        const relDepPath = relative(dirname(myPath), absDepPath)
+
+        if (importType(relDepPath, context) === 'parent') {
+          context.report({
+            node: sourceNode,
+            message: 'Relative imports from parent directories are not allowed. ' +
+              `Please either pass what you're importing through at runtime ` +
+              `(dependency injection), move \`${basename(myPath)}\` to same ` +
+              `directory as \`${depPath}\` or consider making \`${depPath}\` a package.`,
+          })
+        }
       }
 
-      const relDepPath = relative(dirname(myPath), absDepPath)
-
-      if (importType(relDepPath, context) === 'parent') {
-        context.report({
-          node: sourceNode,
-          message: 'Relative imports from parent directories are not allowed. ' +
-            `Please either pass what you're importing through at runtime ` +
-            `(dependency injection), move \`${basename(myPath)}\` to same ` +
-            `directory as \`${depPath}\` or consider making \`${depPath}\` a package.`,
-        })
-      }
+      const absDepPath = resolve(depPath, context, handleAbsDepPath)
+      handleAbsDepPath(null, absDepPath)
     }
 
     return moduleVisitor(checkSourceValue, context.options[0])

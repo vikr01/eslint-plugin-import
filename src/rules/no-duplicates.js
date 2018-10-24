@@ -23,15 +23,25 @@ module.exports = {
     const typesImported = new Map()
     return {
       'ImportDeclaration': function (n) {
-        // resolved path will cover aliased duplicates
-        const resolvedPath = resolve(n.source.value, context) || n.source.value
-        const importMap = n.importKind === 'type' ? typesImported : imported
+        let handled = false
+        function handleResolvedPath(error, resolvedPath) {
+          if(handled) {
+            return
+          }
+          handled = true
 
-        if (importMap.has(resolvedPath)) {
-          importMap.get(resolvedPath).add(n.source)
-        } else {
-          importMap.set(resolvedPath, new Set([n.source]))
+          const importMap = n.importKind === 'type' ? typesImported : imported
+
+          if (importMap.has(resolvedPath)) {
+            importMap.get(resolvedPath).add(n.source)
+          } else {
+            importMap.set(resolvedPath, new Set([n.source]))
+          }
         }
+
+        // resolved path will cover aliased duplicates
+        const resolvedPath = resolve(n.source.value, context, handleResolvedPath) || n.source.value
+        handleResolvedPath(null, resolvedPath)
       },
 
       'Program:exit': function () {

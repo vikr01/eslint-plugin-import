@@ -25,21 +25,28 @@ module.exports = {
       const shouldCheckCase = !CASE_SENSITIVE_FS &&
         (!context.options[0] || context.options[0].caseSensitive !== false)
 
-      const resolvedPath = resolve(source.value, context)
+      let handled = false
+      function handleResolvedPath(error, resolvedPath) {
+        if(handled) { return }
+        handled = true
 
-      if (resolvedPath === undefined) {
-        context.report(source,
-          `Unable to resolve path to module '${source.value}'.`)
-      }
-
-      else if (shouldCheckCase) {
-        const cacheSettings = ModuleCache.getSettings(context.settings)
-        if (!fileExistsWithCaseSync(resolvedPath, cacheSettings)) {
+        if (resolvedPath === undefined) {
           context.report(source,
-            `Casing of ${source.value} does not match the underlying filesystem.`)
+            `Unable to resolve path to module '${source.value}'.`)
         }
 
+        else if (shouldCheckCase) {
+          const cacheSettings = ModuleCache.getSettings(context.settings)
+          if (!fileExistsWithCaseSync(resolvedPath, cacheSettings)) {
+            context.report(source,
+              `Casing of ${source.value} does not match the underlying filesystem.`)
+          }
+
+        }
       }
+
+      const resolvedPath = resolve(source.value, context, handleResolvedPath)
+      handleResolvedPath(null, resolvedPath)
     }
 
     return moduleVisitor(checkSourceValue, context.options[0])

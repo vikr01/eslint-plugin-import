@@ -70,37 +70,46 @@ module.exports = {
         return
       }
 
-      const resolvedPath = resolve(value, context)
-      const normed = normalize(value)
-      if (normed !== value && resolvedPath === resolve(normed, context)) {
-        return report(normed)
+      let handled = false
+      function handleResolvedPath(error, resolvedPath) {
+        if(handled) {
+          return
+        }
+        handled = true
+        const normed = normalize(value)
+        if (normed !== value && resolvedPath === resolve(normed, context)) {
+          return report(normed)
+        }
+
+        if (value.startsWith('./')) {
+          return
+        }
+
+        if (resolvedPath === undefined) {
+          return
+        }
+
+        const expected = path.relative(currentDir, resolvedPath)
+        const expectedSplit = expected.split(path.sep)
+        const valueSplit = value.replace(/^\.\//, '').split('/')
+        const valueNRelParents = countRelParent(valueSplit)
+        const expectedNRelParents = countRelParent(expectedSplit)
+        const diff = valueNRelParents - expectedNRelParents
+
+        if (diff <= 0) {
+          return
+        }
+
+        return report(
+          toRel(valueSplit
+            .slice(0, expectedNRelParents)
+            .concat(valueSplit.slice(valueNRelParents + diff))
+            .join('/'))
+        )
       }
 
-      if (value.startsWith('./')) {
-        return
-      }
-
-      if (resolvedPath === undefined) {
-        return
-      }
-
-      const expected = path.relative(currentDir, resolvedPath)
-      const expectedSplit = expected.split(path.sep)
-      const valueSplit = value.replace(/^\.\//, '').split('/')
-      const valueNRelParents = countRelParent(valueSplit)
-      const expectedNRelParents = countRelParent(expectedSplit)
-      const diff = valueNRelParents - expectedNRelParents
-
-      if (diff <= 0) {
-        return
-      }
-
-      return report(
-        toRel(valueSplit
-          .slice(0, expectedNRelParents)
-          .concat(valueSplit.slice(valueNRelParents + diff))
-          .join('/'))
-      )
+      const resolvedPath = resolve(value, context, handleResolvedPath)
+      handleResolvedPath(null, resolvedPath)
     }
 
     return moduleVisitor(checkSourceValue, context.options[0])

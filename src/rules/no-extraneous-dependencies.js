@@ -107,41 +107,53 @@ function reportIfMissing(context, deps, depsOptions, node, name) {
     return
   }
 
-  if (importType(name, context) !== 'external') {
-    return
+  let handled = false
+  function handleResolved(error, resolved) {
+    if(handled) { return }
+    handled = true
+    if (!resolved) { return }
+
+    const splitName = name.split('/')
+    const packageName = splitName[0][0] === '@'
+      ? splitName.slice(0, 2).join('/')
+      : splitName[0]
+    const isInDeps = deps.dependencies[packageName] !== undefined
+    const isInDevDeps = deps.devDependencies[packageName] !== undefined
+    const isInOptDeps = deps.optionalDependencies[packageName] !== undefined
+    const isInPeerDeps = deps.peerDependencies[packageName] !== undefined
+
+    if (isInDeps ||
+      (depsOptions.allowDevDeps && isInDevDeps) ||
+      (depsOptions.allowPeerDeps && isInPeerDeps) ||
+      (depsOptions.allowOptDeps && isInOptDeps)
+    ) {
+      return
+    }
+
+    if (isInDevDeps && !depsOptions.allowDevDeps) {
+      context.report(node, devDepErrorMessage(packageName))
+      return
+    }
+
+    if (isInOptDeps && !depsOptions.allowOptDeps) {
+      context.report(node, optDepErrorMessage(packageName))
+      return
+    }
+
+    context.report(node, missingErrorMessage(packageName))
   }
 
-  const resolved = resolve(name, context)
-  if (!resolved) { return }
-
-  const splitName = name.split('/')
-  const packageName = splitName[0][0] === '@'
-    ? splitName.slice(0, 2).join('/')
-    : splitName[0]
-  const isInDeps = deps.dependencies[packageName] !== undefined
-  const isInDevDeps = deps.devDependencies[packageName] !== undefined
-  const isInOptDeps = deps.optionalDependencies[packageName] !== undefined
-  const isInPeerDeps = deps.peerDependencies[packageName] !== undefined
-
-  if (isInDeps ||
-    (depsOptions.allowDevDeps && isInDevDeps) ||
-    (depsOptions.allowPeerDeps && isInPeerDeps) ||
-    (depsOptions.allowOptDeps && isInOptDeps)
-  ) {
-    return
+  let importTypeHandled = false
+  function handleImportType(error, result) {
+    if(importTypeHandled) { return }
+    importTypeHandled = true
+    if(result !== 'external') { return }
+    const resolved = resolve(name, context)
+    handleResolved(null, resolved)
   }
 
-  if (isInDevDeps && !depsOptions.allowDevDeps) {
-    context.report(node, devDepErrorMessage(packageName))
-    return
-  }
-
-  if (isInOptDeps && !depsOptions.allowOptDeps) {
-    context.report(node, optDepErrorMessage(packageName))
-    return
-  }
-
-  context.report(node, missingErrorMessage(packageName))
+  const importTypeResult = importType(name, context, handleImportType)
+  handleImportType(null, importTypeResult)
 }
 
 function testConfig(config, filename) {

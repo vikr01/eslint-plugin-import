@@ -10,13 +10,23 @@ import docsUrl from '../docsUrl'
 function isImportingSelf(context, node, requireName) {
   const filePath = context.getFilename()
 
-  // If the input is from stdin, this test can't fail
-  if (filePath !== '<text>' && filePath === resolve(requireName, context)) {
-    context.report({
-        node,
-        message: 'Module imports itself.',
-    })
+  let handled = false
+  function handleResolvedPath(error, resolvedPath) {
+    if(handled) {
+      return
+    }
+    handled = true
+    // If the input is from stdin, this test can't fail
+    if (filePath !== '<text>' && filePath === resolvedPath) {
+      context.report({
+          node,
+          message: 'Module imports itself.',
+      })
+    }
   }
+
+  const resolvedPath = resolve(requireName, context, handleResolvedPath)
+  handleResolvedPath(null, resolvedPath)
 }
 
 module.exports = {
