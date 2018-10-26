@@ -401,8 +401,31 @@ ExportMap.parse = function (path, content, context) {
     return getter
   }
 
+  // let isEsModule = false;
 
   ast.body.forEach(function (n) {
+    if (n.type === 'ExpressionStatement') {
+      if (n.expression.type !== 'AssignmentExpression') return
+
+      const left = n.expression.left
+      const right = n.expression.right
+      if (left.type === 'MemberExpression') {
+        if (left.object.type !== 'Identifier') return
+
+        if (left.object.name === 'module') {
+          // return if it's module.<not-exports>
+          if (left.property.type === 'Identifier'
+            && left.property.name !== 'exports') return
+          // return if it's module['<not-exports>']
+          else if (left.property.type === 'StringLiteral'
+            && left.property.value !== 'exports') return
+          else return
+        }
+      } else if (left.type === 'Identifier') {
+        if(left.name !== 'exports') return
+      } else return
+
+    }
 
     if (n.type === 'ExportDefaultDeclaration') {
       const exportMeta = captureDoc(docStyleParsers, n)
