@@ -8,6 +8,12 @@ function isRequire(node) {
     node.arguments.length >= 1
 }
 
+function isDynamicImport(node) {
+  return node &&
+    node.callee &&
+    node.callee.type === 'Import'
+}
+
 function isStaticValue(arg) {
   return arg.type === 'Literal' ||
     (arg.type === 'TemplateLiteral' && arg.expressions.length === 0)
@@ -18,15 +24,35 @@ module.exports = {
     docs: {
       url: docsUrl('no-dynamic-require'),
     },
+    schema: [
+      {
+        type: 'object',
+        properties: {
+          esmodule: {
+            type: 'boolean',
+          },
+        },
+        additionalProperties: false,
+      },
+    ],
   },
 
   create: function (context) {
+    const options = context.options[0] || {}
+
     return {
       CallExpression(node) {
-        if (isRequire(node) && !isStaticValue(node.arguments[0])) {
-          context.report({
+        if (!node.arguments[0] || isStaticValue(node.arguments[0])) return
+        if (isRequire(node)) {
+          return context.report({
             node,
             message: 'Calls to require() should use string literals',
+          })
+        }
+        else if (options.esmodule && isDynamicImport(node)) {
+          return context.report({
+            node,
+            message: 'Calls to import() should use string literals',
           })
         }
       },
