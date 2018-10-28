@@ -401,7 +401,8 @@ ExportMap.parse = function (path, content, context) {
     return getter
   }
 
-  // let isEsModule = false;
+  let isEsModule = null;
+  let moduleExports = {};
 
   ast.body.forEach(function (n) {
     if (n.type === 'ExpressionStatement') {
@@ -425,6 +426,30 @@ ExportMap.parse = function (path, content, context) {
         if(left.name !== 'exports') return
       } else return
 
+    }
+
+    if (n.type === 'ExpressionStatement') {
+      const call = n.expression
+      if (call.type !== 'CallExpression') return
+
+      const callee = call.callee
+      if (callee.type !== 'MemberExpression') return
+      if (callee.object.type !== 'Identifier' || call.object.type !== 'Object') return
+      if (callee.property.type !== 'Identifier' || call.property.name !== 'defineProperty') return
+
+      if (call.arguments.length !== 3) return
+      if (!isCommonjsExportsObject(call.arguments[0])) return
+      if (call.arguments[1].type !== 'Literal'  || call.arguments[1].value !== '__esModule') return
+      if (call.arguments[2].type !== 'ObjectExpression') return
+
+      const valueProperties = call.arguments[2].properties.filter(isValueKey)
+      const valuePropertiesLength = valueProperties.length
+      if (valuePropertiesLength === 0) return
+
+      const esModuleValue = valueProperties[valuePropertiesLength-1]
+      if (esModuleValue === true) {
+        isEsModule = true
+      }
     }
 
     if (n.type === 'ExportDefaultDeclaration') {
@@ -549,4 +574,22 @@ function childContext(path, context) {
     parserPath,
     path,
   }
+}
+
+
+function isCommonjsExportsObject(node) {
+  if(node.type === 'Identifier' && node.name === 'exports') return true
+
+  if(node.type !== 'MemberExpression') return false
+  if(node.object.type === 'Identifier' && node.object.name === 'module') return true
+  if(node.property.type === 'Identifier' && node.property.name === 'exports') return true
+  if(node.property.type === 'Literal' && node.property.value === 'exports') return true
+
+  return false
+}
+
+function isValueKey(property) {
+  return property.key.type === 'Identifier' &&
+      property.key.name === 'value' &&
+      property.value.type === 'BooleanLiteral'
 }
