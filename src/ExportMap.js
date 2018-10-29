@@ -401,54 +401,105 @@ ExportMap.parse = function (path, content, context) {
     return getter
   }
 
-  let isEsModule = null;
-  let moduleExports = {};
+  let moduleExports = {}
+  let moduleExportsMain = null
+
+  function parseModuleExportsObjectExpression(node) {
+    moduleExportsMain = true
+    moduleExports = {}
+    node.properties.forEach(
+      function(property) {
+        const keyType = property.key.type
+
+        if (keyType === 'Identifier') {
+          const keyName = property.key.name
+          moduleExports[keyName] = property.value
+        }
+        else if (keyType === 'Literal') {
+          const keyName = property.key.value
+          moduleExports[keyName] = property.value
+        }
+      }
+    )
+  }
+
+  function handleModuleExports() {
+    let isEsModule = false
+    const esModule = moduleExports.__esModule
+    if (esModule && esModule.type === 'Literal' && esModule.value) {
+      // for interopRequireDefault calls
+    }
+
+    Object.getOwnPropertyNames(moduleExports).forEach(function (propertyName) {
+      m.namespace.set(propertyName)
+    })
+
+    if (!isEsModule && moduleExportsMain) {
+      m.namespace.set('default')
+    }
+  }
 
   ast.body.forEach(function (n) {
     if (n.type === 'ExpressionStatement') {
-      if (n.expression.type !== 'AssignmentExpression') return
+      if (n.expression.type !== 'AssignmentExpression') {
+        const left = n.expression.left
+        const right = n.expression.right
 
-      const left = n.expression.left
-      const right = n.expression.right
-      if (left.type === 'MemberExpression') {
-        if (left.object.type !== 'Identifier') return
-
-        if (left.object.name === 'module') {
-          // return if it's module.<not-exports>
-          if (left.property.type === 'Identifier'
-            && left.property.name !== 'exports') return
-          // return if it's module['<not-exports>']
-          else if (left.property.type === 'StringLiteral'
-            && left.property.value !== 'exports') return
-          else return
+        if (isCommonjsExportsObject(left)) {
+          moduleExportsMain = true
+          if (right.type === 'ObjectExpression') {
+            parseModuleExportsObjectExpression(right)
+          }
         }
-      } else if (left.type === 'Identifier') {
-        if(left.name !== 'exports') return
-      } else return
+        else if (left.type === 'MemberExpression'
+          && isCommonjsExportsObject(left.object)) {
+          if (left.property.type === 'Identifier') {
+            const keyName = left.property.name
+            moduleExports[keyName] = right
+          }
+          else if (left.property.type === 'Literal') {
+            const keyName = left.property.value
+            moduleExports[keyName] = right
+          }
+        }
+        else return
+      }
+      else if (n.expression.type === 'CallExpression') {
+        const call = n.expression
 
-    }
+        const callee = call.callee
+        if (callee.type !== 'MemberExpression') return
+        if (callee.object.type !== 'Identifier' || call.object.type !== 'Object') return
+        if (callee.property.type !== 'Identifier' || call.property.name !== 'defineProperty') return
 
-    if (n.type === 'ExpressionStatement') {
-      const call = n.expression
-      if (call.type !== 'CallExpression') return
+        if (call.arguments.length !== 3) return
+        if (!isCommonjsExportsObject(call.arguments[0])) return
+        if (call.arguments[1].type !== 'Literal') return
+        if (call.arguments[2].type !== 'ObjectExpression') return
 
-      const callee = call.callee
-      if (callee.type !== 'MemberExpression') return
-      if (callee.object.type !== 'Identifier' || call.object.type !== 'Object') return
-      if (callee.property.type !== 'Identifier' || call.property.name !== 'defineProperty') return
+        call.arguments[2].properties.forEach(function (defineProperty) {
+          if (defineProperty.type !== 'Property') return
 
-      if (call.arguments.length !== 3) return
-      if (!isCommonjsExportsObject(call.arguments[0])) return
-      if (call.arguments[1].type !== 'Literal'  || call.arguments[1].value !== '__esModule') return
-      if (call.arguments[2].type !== 'ObjectExpression') return
+          if (defineProperty.key.type === 'Literal'
+              && defineProperty.key.value === 'value') {
+            // {'value': <value>}
+            Object.defineProperty(
+              moduleExports,
+              call.arguments[1].value,
+              defineProperty.value
+            )
+          }
+          else if (defineProperty.key.type === 'Identifier'
+              && defineProperty.key.name === 'value') {
+            // {value: <value>}
+            Object.defineProperty(
+              moduleExports,
+              call.arguments[1].value,
+              defineProperty.value
+            )
+          }
+        })
 
-      const valueProperties = call.arguments[2].properties.filter(isValueKey)
-      const valuePropertiesLength = valueProperties.length
-      if (valuePropertiesLength === 0) return
-
-      const esModuleValue = valueProperties[valuePropertiesLength-1]
-      if (esModuleValue === true) {
-        isEsModule = true
       }
     }
 
@@ -531,6 +582,8 @@ ExportMap.parse = function (path, content, context) {
     }
   })
 
+  handleModuleExports()
+
   return m
 }
 
@@ -576,20 +629,24 @@ function childContext(path, context) {
   }
 }
 
-
+/**
+ * Check if a given node is exports, module.exports, or module['exports']
+ * @param {node} node
+ * @return {boolean}
+ */
 function isCommonjsExportsObject(node) {
-  if(node.type === 'Identifier' && node.name === 'exports') return true
+  // exports
+  if (node.type === 'Identifier' && node.name === 'exports') return true
 
-  if(node.type !== 'MemberExpression') return false
-  if(node.object.type === 'Identifier' && node.object.name === 'module') return true
-  if(node.property.type === 'Identifier' && node.property.name === 'exports') return true
-  if(node.property.type === 'Literal' && node.property.value === 'exports') return true
+  if (node.type !== 'MemberExpression') return false
+
+  if (node.object.type === 'Identifier' && node.object.name === 'module') {
+    // module.exports
+    if (node.property.type === 'Identifier' && node.property.name === 'exports') return true
+
+    // module['exports']
+    if (node.property.type === 'Literal' && node.property.value === 'exports') return true
+  }
 
   return false
-}
-
-function isValueKey(property) {
-  return property.key.type === 'Identifier' &&
-      property.key.name === 'value' &&
-      property.value.type === 'BooleanLiteral'
 }
