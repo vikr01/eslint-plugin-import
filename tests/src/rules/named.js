@@ -33,6 +33,7 @@ ruleTester.run('named', rule, {
                 '// eslint-disable-line named' }),
 
     test({ code: 'import { foo, bar } from "./re-export-names"' }),
+    test({ code: 'import { foo, bar } from "./re-export-names-es5"' }),
 
     test({ code: 'import { foo, bar } from "./common"'
          , settings: { 'import/ignore': ['common'] } }),
@@ -65,6 +66,7 @@ ruleTester.run('named', rule, {
     test({ code: 'import { destructuredProp } from "./named-exports"' }),
     test({ code: 'import { arrayKeyProp } from "./named-exports"' }),
     test({ code: 'import { deepProp } from "./named-exports"' }),
+    test({ code: 'import { deepProp, deepSparseElement } from "./named-exports-es5"' }),
     test({ code: 'import { deepSparseElement } from "./named-exports"' }),
 
     // should ignore imported flow types, even if they don’t exist
@@ -212,6 +214,11 @@ ruleTester.run('named', rule, {
       code: 'import { a } from "./re-export-names"',
       options: [2, 'es6-only'],
       errors: [error('a', './re-export-names')],
+    }),
+
+    test({
+      code: 'import { a } from "./re-export-names-es5"',
+      errors: [error('a', './re-export-names-es5')],
     }),
 
     // export tests

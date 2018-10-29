@@ -441,7 +441,7 @@ ExportMap.parse = function (path, content, context) {
 
   ast.body.forEach(function (n) {
     if (n.type === 'ExpressionStatement') {
-      if (n.expression.type !== 'AssignmentExpression') {
+      if (n.expression.type === 'AssignmentExpression') {
         const left = n.expression.left
         const right = n.expression.right
 
