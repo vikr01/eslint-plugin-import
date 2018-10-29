@@ -208,6 +208,11 @@ ruleTester.run('named', rule, {
       options: [{commonjs: false}],
     }),
 
+    test({
+      code: 'const { default: defExport } = require("./bar")',
+      options: [{commonjs: true}],
+    }),
+
     ...SYNTAX_CASES,
   ],
 
@@ -278,6 +283,12 @@ ruleTester.run('named', rule, {
     test({
       code: 'const { baz: bar, bop } = require("./bar"), { a } = require("./re-export-names")',
       errors: [error('baz', './bar'), error('bop', './bar'), error('a', './re-export-names')],
+      options: [{commonjs: true}],
+    }),
+
+    test({
+      code: 'const { default: defExport } = require("./named-exports")',
+      errors: [error('default', './named-exports')],
       options: [{commonjs: true}],
     }),
 
