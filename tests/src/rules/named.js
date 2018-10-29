@@ -154,6 +154,9 @@ ruleTester.run('named', rule, {
     test({
       code: '/*jsnext*/ import { createStore } from "redux"',
     }),
+    test({
+      code: 'import { createStore } from "redux"',
+    }),
 
     // ignore is ignored if exports are found
     test({ code: 'import { foo } from "es6-module"' }),
@@ -282,11 +285,21 @@ ruleTester.run('named', rule, {
       settings: { 'import/ignore': [] },
       errors: ["createSnorlax not found in 'redux'"],
     }),
+    test({
+      code: 'import { createSnorlax } from "redux"',
+      settings: { 'import/ignore': [] },
+      errors: ["createSnorlax not found in 'redux'"],
+    }),
     // should work without ignore
     test({
       code: '/*jsnext*/ import { createSnorlax } from "redux"',
       errors: ["createSnorlax not found in 'redux'"],
     }),
+    test({
+      code: 'import { createSnorlax } from "redux"',
+      errors: ["createSnorlax not found in 'redux'"],
+    }),
+
 
     // ignore is ignored if exports are found
     test({
