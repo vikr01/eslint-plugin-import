@@ -7,9 +7,18 @@ module.exports = {
     docs: {
       url: docsUrl('named'),
     },
+    schema : [{
+      type: 'object',
+      properties: {
+        commonjs: { type: 'boolean' },
+      },
+      additionalProperties: false,
+    }],
   },
 
   create: function (context) {
+    const options = context.options[0] || {}
+
     function checkSpecifiers(key, type, node) {
       // ignore local exports and type imports
       if (node.source == null || node.importKind === 'type') return
@@ -19,7 +28,7 @@ module.exports = {
         return // no named imports/exports
       }
 
-      const imports = Exports.get(node.source.value, context)
+      const imports = Exports.get(node.source.value, context, options)
       if (imports == null) return
 
       if (imports.errors.length) {

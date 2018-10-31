@@ -266,14 +266,14 @@ function captureTomDoc(comments) {
   }
 }
 
-ExportMap.get = function (source, context) {
+ExportMap.get = function (source, context, options) {
   const path = resolve(source, context)
   if (path == null) return null
 
-  return ExportMap.for(childContext(path, context))
+  return ExportMap.for(childContext(path, context), options)
 }
 
-ExportMap.for = function (context) {
+ExportMap.for = function (context, options = { commonjs: false }) {
   const { path } = context
 
   const cacheKey = hashObject(context).digest('hex')
@@ -300,14 +300,14 @@ ExportMap.for = function (context) {
   const content = fs.readFileSync(path, { encoding: 'utf8' })
 
   // check for and cache ignore
-  if (isIgnored(path, context) || !unambiguous.test(content)) {
+  if (isIgnored(path, context) || (!options.commonjs && !unambiguous.test(content))) {
     log('ignored path due to unambiguous regex or ignore settings:', path)
     exportCache.set(cacheKey, null)
     return null
   }
 
   log('cache miss', cacheKey, 'for path', path)
-  exportMap = ExportMap.parse(path, content, context)
+  exportMap = ExportMap.parse(path, content, context, options)
 
   // ambiguous modules return null
   if (exportMap == null) return null
@@ -319,7 +319,9 @@ ExportMap.for = function (context) {
 }
 
 
-ExportMap.parse = function (path, content, context) {
+ExportMap.parse = function (path, content, context, options = { commonjs: false }) {
+  log('using commonjs exports:', options.commonjs)
+
   var m = new ExportMap(path)
 
   try {
@@ -330,7 +332,7 @@ ExportMap.parse = function (path, content, context) {
     return m // can't continue
   }
 
-  if (!unambiguous.isModule(ast)) return null
+  if (!options.commonjs && !unambiguous.isModule(ast)) return null
 
   const docstyle = (context.settings && context.settings['import/docstyle']) || ['jsdoc']
   const docStyleParsers = {}
@@ -440,66 +442,67 @@ ExportMap.parse = function (path, content, context) {
   }
 
   ast.body.forEach(function (n) {
-    if (n.type === 'ExpressionStatement') {
-      if (n.expression.type === 'AssignmentExpression') {
-        const left = n.expression.left
-        const right = n.expression.right
+    if (options.commonjs) {
+      if (n.type === 'ExpressionStatement') {
+        if (n.expression.type === 'AssignmentExpression') {
+          const left = n.expression.left
+          const right = n.expression.right
 
-        if (isCommonjsExportsObject(left)) {
-          moduleExportsMain = true
-          if (right.type === 'ObjectExpression') {
-            parseModuleExportsObjectExpression(right)
+          if (isCommonjsExportsObject(left)) {
+            moduleExportsMain = true
+            if (right.type === 'ObjectExpression') {
+              parseModuleExportsObjectExpression(right)
+            }
           }
+          else if (left.type === 'MemberExpression'
+            && isCommonjsExportsObject(left.object)) {
+            if (left.property.type === 'Identifier') {
+              const keyName = left.property.name
+              moduleExports[keyName] = right
+            }
+            else if (left.property.type === 'Literal') {
+              const keyName = left.property.value
+              moduleExports[keyName] = right
+            }
+          }
+          else return
         }
-        else if (left.type === 'MemberExpression'
-          && isCommonjsExportsObject(left.object)) {
-          if (left.property.type === 'Identifier') {
-            const keyName = left.property.name
-            moduleExports[keyName] = right
-          }
-          else if (left.property.type === 'Literal') {
-            const keyName = left.property.value
-            moduleExports[keyName] = right
-          }
+        else if (n.expression.type === 'CallExpression') {
+          const call = n.expression
+
+          const callee = call.callee
+          if (callee.type !== 'MemberExpression') return
+          if (callee.object.type !== 'Identifier' || call.object.type !== 'Object') return
+          if (callee.property.type !== 'Identifier' || call.property.name !== 'defineProperty') return
+
+          if (call.arguments.length !== 3) return
+          if (!isCommonjsExportsObject(call.arguments[0])) return
+          if (call.arguments[1].type !== 'Literal') return
+          if (call.arguments[2].type !== 'ObjectExpression') return
+
+          call.arguments[2].properties.forEach(function (defineProperty) {
+            if (defineProperty.type !== 'Property') return
+
+            if (defineProperty.key.type === 'Literal'
+                && defineProperty.key.value === 'value') {
+              // {'value': <value>}
+              Object.defineProperty(
+                moduleExports,
+                call.arguments[1].value,
+                defineProperty.value
+              )
+            }
+            else if (defineProperty.key.type === 'Identifier'
+                && defineProperty.key.name === 'value') {
+              // {value: <value>}
+              Object.defineProperty(
+                moduleExports,
+                call.arguments[1].value,
+                defineProperty.value
+              )
+            }
+          })
         }
-        else return
-      }
-      else if (n.expression.type === 'CallExpression') {
-        const call = n.expression
-
-        const callee = call.callee
-        if (callee.type !== 'MemberExpression') return
-        if (callee.object.type !== 'Identifier' || call.object.type !== 'Object') return
-        if (callee.property.type !== 'Identifier' || call.property.name !== 'defineProperty') return
-
-        if (call.arguments.length !== 3) return
-        if (!isCommonjsExportsObject(call.arguments[0])) return
-        if (call.arguments[1].type !== 'Literal') return
-        if (call.arguments[2].type !== 'ObjectExpression') return
-
-        call.arguments[2].properties.forEach(function (defineProperty) {
-          if (defineProperty.type !== 'Property') return
-
-          if (defineProperty.key.type === 'Literal'
-              && defineProperty.key.value === 'value') {
-            // {'value': <value>}
-            Object.defineProperty(
-              moduleExports,
-              call.arguments[1].value,
-              defineProperty.value
-            )
-          }
-          else if (defineProperty.key.type === 'Identifier'
-              && defineProperty.key.name === 'value') {
-            // {value: <value>}
-            Object.defineProperty(
-              moduleExports,
-              call.arguments[1].value,
-              defineProperty.value
-            )
-          }
-        })
-
       }
     }
 
@@ -582,7 +585,7 @@ ExportMap.parse = function (path, content, context) {
     }
   })
 
-  handleModuleExports()
+  if (options.commonjs) handleModuleExports()
 
   return m
 }
